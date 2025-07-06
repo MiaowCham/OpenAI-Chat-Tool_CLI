@@ -19,7 +19,7 @@ WELCOME_MSG = f"""{COLOR_GREEN}我是 DeepSeek，很高兴见到你！
 # help 内容定义
 HELP_MSG = f"""{COLOR_YELLOW}指令列表:
 {COLOR_BLUE}
-- 'exit': 退出 DeepSeek AI 助手
+- 'exit': 退出 COCTool 并清空配置文件
 - 'clear': 清屏
 - 'key': 查看当前 API Key
 - 'systemprompt': 查看当前系统提示词
@@ -145,7 +145,14 @@ while True:
         continue
     # 检查用户输入是否为 'exit'
     if user_input.lower() == 'exit':
-        print(f"{COLOR_RED}退出 DeepSeek AI 助手。{COLOR_RESET}")
+        # 清空 config 文件
+        try:
+            if os.path.exists(CONFIG_PATH):
+                os.remove(CONFIG_PATH)
+                print(f"{COLOR_YELLOW}已清空配置文件（{CONFIG_PATH}）{COLOR_RESET}")
+        except Exception as e:
+            print(f"{COLOR_RED}清空配置文件失败: {e}{COLOR_RESET}")
+        print(f"{COLOR_RED}正在退出 COCTool{COLOR_RESET}")
         break
     # 检查用户输入是否为 'clear'
     if user_input.lower() == 'clear':
