@@ -35,7 +35,7 @@ def build_exe():
         sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--clean",
-        "--name", "OpenAI-Chat",
+        "--name", "COCTool",
         "main.py"
     ]
     subprocess.check_call(cmd)

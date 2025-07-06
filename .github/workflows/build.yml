@@ -45,5 +45,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: OpenAI-Chat
-        path: dist/OpenAI-Chat.exe
+        name: CMD_OpenAI_Chat_Tool
+        path: dist/COCTool.exe
