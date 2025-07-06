@@ -18,6 +18,8 @@ def check_and_install(package):
     except pkg_resources.DistributionNotFound:
         print(f"未检测到 {package}，正在安装...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    except Exception as e:
+        print(f"检测/安装 {package} 失败: {e}")
 
 def clean_build_dirs():
     for d in ["build", "dist"]:
@@ -36,6 +38,9 @@ def build_exe():
         "--onefile",
         "--clean",
         "--name", "COCTool",
+        "--hidden-import", "yaml",
+        "--hidden-import", "yaml.loader",
+        "--hidden-import", "yaml.dumper",
         "main.py"
     ]
     subprocess.check_call(cmd)

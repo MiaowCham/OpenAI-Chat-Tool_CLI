@@ -1,7 +1,8 @@
-from openai import OpenAI
-import time
 import os
-import yaml  # 替换 json 为 yaml
+import time
+import sys
+import yaml
+from openai import OpenAI
 
 # 颜色定义
 COLOR_YELLOW = "\033[33m"
@@ -26,10 +27,29 @@ HELP_MSG = f"""{COLOR_YELLOW}指令列表:
 {COLOR_RESET}
 {WELCOME_MSG}"""
 
-# 初始设置
-print("\033[H\033[J", end="")  # 清屏
+def get_config_path():
+    # 优先使用运行目录下的 .coctool/config.yaml
+    exe_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    config_dir = os.path.join(exe_dir, ".coctool")
+    config_path = os.path.join(config_dir, "config.yaml")
+    try:
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir, exist_ok=True)
+        # 测试写权限
+        with open(config_path, "a", encoding="utf-8"):
+            pass
+        return config_path
+    except Exception:
+        # 回退到用户主目录
+        user_config_dir = os.path.join(os.path.expanduser("~"), ".COCTool")
+        if not os.path.exists(user_config_dir):
+            try:
+                os.makedirs(user_config_dir, exist_ok=True)
+            except Exception as e:
+                print(f"{COLOR_RED}无法创建配置目录: {user_config_dir}，错误: {e}{COLOR_RESET}")
+        return os.path.join(user_config_dir, "config.yaml")
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
+CONFIG_PATH = get_config_path()
 config = {}
 api_key = None
 api_endpoint = None
@@ -43,74 +63,72 @@ def save_config(path, api_key, api_endpoint, system_prompt, model_name):
         "system_Prompt": system_prompt,
         "model-name": model_name
     }
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, allow_unicode=True)
-
-# 检查 config.yaml 是否存在，不存在则创建
-if not os.path.exists(CONFIG_PATH):
-    print(f"{COLOR_YELLOW}未检测到 config.yaml，将进行首次配置...{COLOR_RESET}")
-    # 手动输入
-    api_key = input(f"{COLOR_YELLOW}请输入您的 API Key: {COLOR_RESET}").strip()
-    while not api_key:
-        print(f"{COLOR_RED}API Key 不能为空{COLOR_RESET}")
-        api_key = input(f"{COLOR_YELLOW}请输入您的 API Key: {COLOR_RESET}").strip()
-    api_endpoint = input(f"{COLOR_YELLOW}请输入 API Endpoint（默认 https://api.deepseek.com）：{COLOR_RESET}").strip() or "https://api.deepseek.com"
-    system_prompt = input(f"{COLOR_YELLOW}请输入系统提示词（System Prompt）：{COLOR_RESET}").strip()
-    model_name = input(f"{COLOR_YELLOW}请输入模型名称（默认 deepseek-chat）：{COLOR_RESET}").strip() or "deepseek-chat"
-    save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
-    print(f"{COLOR_GREEN}配置已保存到 config.yaml{COLOR_RESET}")
-
-# 读取 config.yaml
-if os.path.exists(CONFIG_PATH):
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-        api_key = config.get("API_key")
-        api_endpoint = config.get("API_endpoint")
-        system_prompt = config.get("system_Prompt")
-        model_name = config.get("model-name", "deepseek-chat")
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, allow_unicode=True)
+    except Exception as e:
+        print(f"{COLOR_RED}保存 config.yaml 失败: {e}{COLOR_RESET}")
+
+def load_config(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
     except Exception as e:
         print(f"{COLOR_RED}读取 config.yaml 失败: {e}{COLOR_RESET}")
+        return None
 
-# 尝试用 config.yaml 连接 API
-client = None
-if api_key and api_endpoint and system_prompt:
-    print(f"{COLOR_GREEN}正在尝试使用 config.yaml 连接 API...{COLOR_RESET}")
+def validate_api(api_key, api_endpoint):
     try:
         client = OpenAI(api_key=api_key, base_url=api_endpoint)
         client.models.list()
-        print(f"{COLOR_GREEN}config.yaml 连接成功！{COLOR_RESET}")
+        return True
     except Exception as e:
-        print(f"{COLOR_RED}config.yaml 连接失败: {e}{COLOR_RESET}")
-        client = None
+        print(f"{COLOR_RED}API Key 验证失败: {e}{COLOR_RESET}")
+        time.sleep(1)  # 等待一秒钟
+        print("\033[H\033[J", end="")
+        return False
 
-# 若 config.yaml 连接失败或缺失字段，进入手动输入流程，并保存到 config.yaml
-if not client:
-    print("\033[H\033[J", end="")  # 清屏
-    # 提示用户输入 API Key,并验证其有效性
+def input_config():
     while True:
         api_key = input(f"{COLOR_YELLOW}请输入您的 API Key: {COLOR_RESET}").strip()
         if not api_key:
-            print(f"{COLOR_RED}API Key 不能为空{COLOR_RESET}")
-            time.sleep(1)
-            print("\033[H\033[J", end="")  # 清屏
+            print("\033[F\033[K", end="")  # 清除上一行
             continue
         api_endpoint = input(f"{COLOR_YELLOW}请输入 API Endpoint（默认 https://api.deepseek.com）：{COLOR_RESET}").strip() or "https://api.deepseek.com"
         print(f"{COLOR_GREEN}正在验证 API Key，请稍候...{COLOR_RESET}")
-        try:
-            test_client = OpenAI(api_key=api_key, base_url=api_endpoint)
-            test_client.models.list()
-        except Exception as e:
-            print("\033[H\033[J", end="")  # 清屏
-            print(f"{COLOR_RED}API Key 无效或不可用，请重新输入。{COLOR_RESET}")
-            continue
-        print("\033[F\033[K", end="")  # 清除上一行“正在验证 API Key，请稍候...”
-        break
+        if validate_api(api_key, api_endpoint):
+            print("\033[F\033[K", end="")  # 清除“正在验证 API Key，请稍候...”行
+            break
+        print(f"{COLOR_RED}API Key 无效或不可用，请重新输入。{COLOR_RESET}")
+        print("\033[F\033[K", end="")  # 清除上一行
     system_prompt = input(f"{COLOR_YELLOW}请输入系统提示词（System Prompt）：{COLOR_RESET}").strip()
     model_name = input(f"{COLOR_YELLOW}请输入模型名称（默认 deepseek-chat）：{COLOR_RESET}").strip() or "deepseek-chat"
-    save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
-    print(f"{COLOR_GREEN}配置已保存到 config.yaml{COLOR_RESET}")
-    client = OpenAI(api_key=api_key, base_url=api_endpoint)
+    return api_key, api_endpoint, system_prompt, model_name
+
+def main_init():
+    # 启动后立即清屏
+    print("\033[H\033[J", end="")
+    global api_key, api_endpoint, system_prompt, model_name, config
+    config_loaded = False
+    if os.path.exists(CONFIG_PATH):
+        config = load_config(CONFIG_PATH)
+        if config:
+            api_key = config.get("API_key")
+            api_endpoint = config.get("API_endpoint")
+            system_prompt = config.get("system_Prompt")
+            model_name = config.get("model-name", "deepseek-chat")
+            if api_key and api_endpoint and validate_api(api_key, api_endpoint):
+                print(f"{COLOR_GREEN}配置加载成功，API 有效。{COLOR_RESET}")
+                config_loaded = True
+            else:
+                print(f"{COLOR_YELLOW}配置文件中的 API Key 无效或缺失，需重新输入。{COLOR_RESET}")
+    if not config_loaded:
+        api_key, api_endpoint, system_prompt, model_name = input_config()
+        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
+        print(f"{COLOR_GREEN}配置已保存到 config.yaml{COLOR_RESET}")
+
+main_init()
+client = OpenAI(api_key=api_key, base_url=api_endpoint)
 
 print(f"{COLOR_GREEN}已完成初始设置！{COLOR_RESET}")
 time.sleep(1)
@@ -154,9 +172,7 @@ while True:
         continue
     # 检查用户输入是否为空
     if not user_input.strip():
-        print("\033[H\033[J", end="")
-        print(f"""{COLOR_RED}输入不能为空，请重新输入。{COLOR_RESET}
-{WELCOME_MSG}""")
+        print(f"""{COLOR_RED}输入不能为空，请重新输入。{COLOR_RESET}""")
         time.sleep(1)
         print("\033[H\033[J", end="")
         print(WELCOME_MSG)
