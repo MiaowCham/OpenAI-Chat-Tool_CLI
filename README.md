@@ -1,4 +1,8 @@
 # CMD OpenAI Chat Tool
+[![MIT](https://img.shields.io/badge/License-MIT-orange.svg)](https://github.com/MiaowCham/CMD_Open-AI_Chat_Tool/blob/main/LICENSE)
+[![Static Badge](https://img.shields.io/badge/Languages-Python-blue.svg)](https://github.com/search?q=repo%3AMiaowCham%2CMD_Open-AI_Chat_Tool++language%3APython&type=code)
+[![Github Release](https://img.shields.io/github/v/release/MiaowCham/CMD_Open-AI_Chat_Tool)](https://github.com/MiaowCham/CMD_Open-AI_Chat_Tool/releases)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/MiaowCham/CMD_Open-AI_Chat_Tool/.github/workflows/build.yml)](https://github.com/MiaowCham/CMD_Open-AI_Chat_Tool/actions/workflows/build.yml)  
 一个简单的命令行 OpenAI 聊天工具，支持多种模型  
 你可以直接克隆仓库并运行 `main.py` 来使用  
 或者前往 [Release](https://github.com/MiaowCham/CMD_Open-AI_Chat_Tool/releases/latest) 页面下载构建好的可执行文件
