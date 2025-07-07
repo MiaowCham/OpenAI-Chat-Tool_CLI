@@ -12,9 +12,7 @@ COLOR_RED = "\033[31m"
 COLOR_CYAN = "\033[36m"
 COLOR_RESET = "\033[0m"
 
-# 欢迎语定义
-WELCOME_MSG = f"""{COLOR_GREEN}我是 DeepSeek，很高兴见到你！
-我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧~{COLOR_RESET}"""
+ai_name = "AI"
 
 # help 内容定义
 HELP_MSG = f"""{COLOR_YELLOW}指令列表:{COLOR_BLUE}
@@ -25,7 +23,7 @@ HELP_MSG = f"""{COLOR_YELLOW}指令列表:{COLOR_BLUE}
 - '/sys': 查看当前系统提示词
 - '/set': 更改设置，直接输入查看指令帮助
 {COLOR_RESET}
-{WELCOME_MSG}"""
+"""
 
 SET_MSG = f"""{COLOR_YELLOW}/set 指令帮助{COLOR_BLUE}
 - '/set model': 更换模型名称（默认 deepseek-chat，输入 deepseek-reasoner 使用推理模型）
@@ -33,8 +31,7 @@ SET_MSG = f"""{COLOR_YELLOW}/set 指令帮助{COLOR_BLUE}
 - '/set model 1': 切换到 deepseek-reasoner 模型
 - '/set key': 更改 API Key
 - '/set sys': 更改系统提示词
-{COLOR_RESET}
-{WELCOME_MSG}"""
+{COLOR_RESET}"""
 
 def get_config_path():
     # 优先使用运行目录下的 .coctool/config.yaml
@@ -65,12 +62,13 @@ api_endpoint = None
 system_prompt = None
 model_name = None
 
-def save_config(path, api_key, api_endpoint, system_prompt, model_name):
+def save_config(path, api_key, api_endpoint, system_prompt, model_name, ai_name):
     data = {
         "API_key": api_key,
         "API_endpoint": api_endpoint,
         "system_Prompt": system_prompt,
-        "model-name": model_name
+        "model-name": model_name,
+        "ai_name": ai_name
     }
     try:
         with open(path, "w", encoding="utf-8") as f:
@@ -114,7 +112,9 @@ def input_config():
         print("\033[F\033[K", end="")  # 清除上一行
     system_prompt = input(f"{COLOR_YELLOW}请输入系统提示词（System Prompt）：{COLOR_RESET}").strip()
     model_name = input(f"{COLOR_YELLOW}请输入模型名称（默认 deepseek-chat，输入 deepseek-reasoner 使用推理模型）：{COLOR_RESET}").strip() or "deepseek-chat"
-    return api_key, api_endpoint, system_prompt, model_name
+    global ai_name
+    ai_name = input(f"{COLOR_YELLOW}请输入 AI 名称（默认 AI）：{COLOR_RESET}").strip() or "AI"
+    return api_key, api_endpoint, system_prompt, model_name, ai_name
 
 def main_init():
     # 启动后立即清屏
@@ -128,14 +128,16 @@ def main_init():
             api_endpoint = config.get("API_endpoint")
             system_prompt = config.get("system_Prompt")
             model_name = config.get("model-name", "deepseek-chat")
+            global ai_name
+            ai_name = config.get("ai_name")
             if api_key and api_endpoint and validate_api(api_key, api_endpoint):
                 print(f"{COLOR_GREEN}配置加载成功，API 有效。{COLOR_RESET}")
                 config_loaded = True
             else:
                 print(f"{COLOR_YELLOW}配置文件中的 API Key 无效或缺失，需重新输入。{COLOR_RESET}")
     if not config_loaded:
-        api_key, api_endpoint, system_prompt, model_name = input_config()
-        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
+        api_key, api_endpoint, system_prompt, model_name, ai_name = input_config()
+        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
         print(f"{COLOR_GREEN}配置已保存到 config.yaml{COLOR_RESET}")
 
 main_init()
@@ -145,8 +147,12 @@ print(f"{COLOR_GREEN}已完成初始设置！{COLOR_RESET}")
 time.sleep(1)
 print("\033[H\033[J", end="")  # 清屏
 
+# 欢迎语定义
+WELCOME_MSG = f"""{COLOR_GREEN}我是 {ai_name}，很高兴见到你！
+我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧~{COLOR_RESET}"""
+
 def handle_command(user_input):
-    global api_key, api_endpoint, system_prompt, model_name
+    global api_key, api_endpoint, system_prompt, model_name, ai_name
     # 检查用户输入是否为 'help'
     if user_input.lower() == '/help':
         print(HELP_MSG)
@@ -181,11 +187,14 @@ def handle_command(user_input):
             print(f"{COLOR_GREEN}正在验证新的 API Key，请稍候...{COLOR_RESET}")
             if validate_api(new_api_key, api_endpoint):
                 api_key = new_api_key
-                save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
+                save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
+                print("\033[F\033[K", end="")  # 清除上一行
                 print(f"{COLOR_GREEN}API Key 已更新，并已保存到配置文件。{COLOR_RESET}")
             else:
+                print("\033[F\033[K", end="")  # 清除上一行
                 print(f"{COLOR_RED}API Key 验证失败，未进行更改。{COLOR_RESET}")
         else:
+            print("\033[F\033[K", end="")  # 清除上一行
             print(f"{COLOR_YELLOW}API Key 未更改。{COLOR_RESET}")
         return True
     # 检查用户输入是否为 'sys'
@@ -196,9 +205,11 @@ def handle_command(user_input):
         new_system_prompt = input(f"{COLOR_YELLOW}请输入新的系统提示词（直接回车取消更改）: {COLOR_RESET}").strip()
         if new_system_prompt:
             system_prompt = new_system_prompt
-            save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
+            save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
+            print("\033[F\033[K", end="")  # 清除上一行
             print(f"{COLOR_GREEN}系统提示词已更新，并已保存到配置文件。{COLOR_RESET}")
         else:
+            print("\033[F\033[K", end="")  # 清除上一行
             print(f"{COLOR_YELLOW}系统提示词未更改。{COLOR_RESET}")
         return True
     # 检查用户输入是否为 'model'
@@ -207,40 +218,53 @@ def handle_command(user_input):
         return True
     # 新增：更换模型指令
     if user_input.lower() == '/set model':
-        new_model = input(f"{COLOR_YELLOW}请输入模型名称（默认 deepseek-chat，输入 deepseek-reasoner 使用推理模型）：{COLOR_RESET}").strip() or "deepseek-chat"
-        model_name = new_model
-        # 更新config并保存
-        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
-        print("\033[F\033[K", end="")  # 清除上一行
-        print(f"{COLOR_GREEN}模型已更换为: {model_name}，并已保存到配置文件。{COLOR_RESET}")
+        new_model = input(f"{COLOR_YELLOW}请输入模型名称（DeepSeek普通模型: deepseek-chat DeepSeek推理模型: deepseek-reasoner）：{COLOR_RESET}").strip()
+        if new_model:
+            model_name = new_model
+            # 更新config并保存
+            save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
+            print("\033[F\033[K", end="")  # 清除上一行
+            print(f"{COLOR_GREEN}模型已更换为: {model_name}，并已保存到配置文件。{COLOR_RESET}")
+        else:
+            print("\033[F\033[K", end="")  # 清除上一行
+            print(f"{COLOR_YELLOW}模型未更改。{COLOR_RESET}")
         return True
     if user_input.lower() == '/set model 0':
         new_model = "deepseek-chat"
         model_name = new_model
         # 更新config并保存
-        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
+        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
         print(f"{COLOR_GREEN}模型已更换为: {model_name}，并已保存到配置文件。{COLOR_RESET}")
         return True
     if user_input.lower() == '/set model 1':
         new_model = "deepseek-reasoner"
         model_name = new_model
         # 更新config并保存
-        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name)
+        save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
         print(f"{COLOR_GREEN}模型已更换为: {model_name}，并已保存到配置文件。{COLOR_RESET}")
+        return True
+    # 检查用户输入是否为 `/set name`
+    if user_input.lower() == '/set name':
+        new_ai_name = input(f"{COLOR_YELLOW}请输入 AI 名称：{COLOR_RESET}").strip()
+        if new_ai_name:
+            ai_name = new_ai_name
+            save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
+            print("\033[F\033[K", end="")  # 清除上一行
+            print(f"{COLOR_GREEN}AI 名称已更新，并已保存到配置文件。{COLOR_RESET}")
+        else:
+            print("\033[F\033[K", end="")  # 清除上一行
+            print(f"{COLOR_YELLOW}AI 名称未更改。{COLOR_RESET}")
         return True
     # 检查用户输入是否为空
     if not user_input.strip():
         print(f"""{COLOR_RED}输入不能为空，请重新输入。{COLOR_RESET}""")
-        time.sleep(1)
-        print("\033[H\033[J", end="") # 清屏
-        print(WELCOME_MSG)
         return True
     return False
 
 def main():
     print(WELCOME_MSG)
     while True:
-        user_input = input(f"\n{COLOR_YELLOW}给 DeepSeek 发生消息（输入 '/help' 查看帮助）：{COLOR_RESET}\n")
+        user_input = input(f"\n{COLOR_YELLOW}给 {ai_name} 发送消息（输入 '/help' 查看帮助）：{COLOR_RESET}\n")
         if handle_command(user_input):
             continue
         # 处理用户输入
