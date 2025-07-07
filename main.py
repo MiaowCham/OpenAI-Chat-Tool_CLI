@@ -14,6 +14,10 @@ COLOR_RESET = "\033[0m"
 
 ai_name = "AI"
 
+# 欢迎语定义
+WELCOME_MSG = f"""{COLOR_GREEN}我是 {ai_name}，很高兴见到你！
+我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧~{COLOR_RESET}"""
+
 # help 内容定义
 HELP_MSG = f"""{COLOR_YELLOW}指令列表:{COLOR_BLUE}
 - '/clear': 清屏
@@ -152,7 +156,7 @@ WELCOME_MSG = f"""{COLOR_GREEN}我是 {ai_name}，很高兴见到你！
 我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧~{COLOR_RESET}"""
 
 def handle_command(user_input):
-    global api_key, api_endpoint, system_prompt, model_name, ai_name
+    global api_key, api_endpoint, system_prompt, model_name, ai_name, WELCOME_MSG
     # 检查用户输入是否为 'help'
     if user_input.lower() == '/help':
         print(HELP_MSG)
@@ -248,9 +252,18 @@ def handle_command(user_input):
         new_ai_name = input(f"{COLOR_YELLOW}请输入 AI 名称：{COLOR_RESET}").strip()
         if new_ai_name:
             ai_name = new_ai_name
+            # 欢迎语定义
+            WELCOME_MSG = f"""{COLOR_GREEN}我是 {ai_name}，很高兴见到你！
+我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧~{COLOR_RESET}"""
             save_config(CONFIG_PATH, api_key, api_endpoint, system_prompt, model_name, ai_name)
             print("\033[F\033[K", end="")  # 清除上一行
             print(f"{COLOR_GREEN}AI 名称已更新，并已保存到配置文件。{COLOR_RESET}")
+            cls = input(f"{COLOR_YELLOW}是否刷新页面？(y/n){COLOR_RESET}")
+            if cls == "y":
+                print("\033[H\033[J", end="")  # 清屏
+                print(WELCOME_MSG)
+            else:
+                print("\033[F\033[K", end="")  # 清除上一行
         else:
             print("\033[F\033[K", end="")  # 清除上一行
             print(f"{COLOR_YELLOW}AI 名称未更改。{COLOR_RESET}")
