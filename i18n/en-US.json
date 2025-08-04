@@ -34,7 +34,9 @@
         "key_help": "Temporarily specify API Key (simple mode only)",
         "endpoint_help": "Temporarily specify API endpoint (simple mode only)",
         "model_help": "Temporarily specify model (simple mode only)",
-        "prompt_help": "Send request content directly (simple mode only)"
+        "prompt_help": "Send request content directly (simple mode only)",
+        "nomd_help": "Disable Markdown formatting output (simple mode only)",
+        "unstream_help": "Disable streaming response output (simple mode only)"
     },
     "test": {
         "system_message": "You are an AI assistant",
@@ -154,6 +156,7 @@
         "new_desc": "Start new conversation session",
         "lang_desc": "Language switching",
         "markdown_desc": "Toggle Markdown rendering",
+        "stream_desc": "Toggle streaming response",
         "summary_desc": "Actively summarize conversation history",
         "last_summary_desc": "View last summary content",
         "config_usage": "Configuration command usage:",
@@ -175,11 +178,19 @@
         "help_history": "- '/history': View history record status",
         "help_lang": "- '/lang [language code]': Switch language",
         "help_markdown": "- '/markdown [on/off]': Toggle Markdown rendering",
+        "help_stream": "- '/stream [on/off]': Toggle streaming response",
         "help_new": "- '/new': Start new conversation session",
+        "help_refresh": "- '/refresh': Manually refresh display content",
         "help_summary": "- '/summary': Manually summarize conversation history",
         "help_last_summary": "- '/last_summary': View last summary content",
         "help_title_old": "Command list:",
-        "unknown_command": "Unknown command: {command}. Type '/help' for help"
+        "unknown_command": "Unknown command: {command}. Type '/help' for help",
+        "refresh_desc": "Manually refresh display content"
+    },
+    "refresh": {
+        "completed": "Display content refreshed",
+        "no_content": "No content to refresh",
+        "failed": "Failed to refresh display: {error}"
     },
     "history": {
         "status": "History status:",
@@ -214,7 +225,8 @@
         "error": "Error processing message: {error}",
         "simple_error": "Error processing request: {error}",
         "load_config_first": "Please load configuration first",
-        "processing_request": "Processing your request, please wait..."
+        "processing_request": "Processing your request, please wait...",
+        "app_launch": "Program is starting..."
     },
     "ai": {
         "greeting": "I'm {0}, nice to meet you!",
@@ -315,6 +327,17 @@
         "invalid_usage": "Invalid usage",
         "update_failed": "Configuration update failed",
         "no_config_loaded": "No configuration loaded, cannot modify settings"
+    },
+    "stream": {
+        "current_status": "Current streaming response status",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "usage_hint": "Usage: /stream [on/off]",
+        "enabled_success": "Streaming response enabled",
+        "disabled_success": "Streaming response disabled",
+        "invalid_option": "Invalid option: {option}, please use on or off",
+        "invalid_usage": "Invalid usage",
+        "update_failed": "Configuration update failed"
     },
     "version": {
         "title": "OpenAI Chat Tool CLI",

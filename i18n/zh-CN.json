@@ -41,6 +41,17 @@
         "update_failed": "配置更新失败",
         "no_config_loaded": "没有加载配置，无法修改设置"
     },
+    "stream": {
+        "current_status": "当前流式响应状态",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "usage_hint": "使用方法: /stream [on/off]",
+        "enabled_success": "流式响应已开启",
+        "disabled_success": "流式响应已关闭",
+        "invalid_option": "无效选项: {option}，请使用 on 或 off",
+        "invalid_usage": "无效的使用方式",
+        "update_failed": "配置更新失败"
+    },
     "args": {
         "description": "OpenAI Chat Tool CLI - 一个基于 OpenAI 库编写的一个简单的命令行 API 聊天工具，支持多种模型、多语言界面和智能功能",
         "examples": "\n使用示例:\n  python main.py                          # 正常启动\n  python main.py --config Prompt_001      # 使用指定配置启动\n  python main.py --list                   # 列出所有配置\n  python main.py --simple --prompt \"你好\"  # 极简模式\n",
@@ -50,7 +61,9 @@
         "key_help": "临时指定API Key（仅极简模式）",
         "endpoint_help": "临时指定API端点（仅极简模式）",
         "model_help": "临时指定模型（仅极简模式）",
-        "prompt_help": "直接发送请求内容（仅极简模式）"
+        "prompt_help": "直接发送请求内容（仅极简模式）",
+        "nomd_help": "禁用Markdown格式化输出（仅极简模式）",
+        "unstream_help": "禁用流式响应输出（仅极简模式）"
     },
     "test": {
         "system_message": "你是一个AI助手",
@@ -170,6 +183,7 @@
         "new_desc": "开始新对话会话",
         "lang_desc": "语言切换",
         "markdown_desc": "切换Markdown渲染开关",
+        "stream_desc": "切换流式响应开关",
         "summary_desc": "主动总结对话历史",
         "last_summary_desc": "查看上次总结内容",
         "help_title_old": "指令列表:",
@@ -188,6 +202,8 @@
         "help_last_summary": "- '/last_summary': 查看上次总结内容",
         "help_lang": "- '/lang [语言代码]': 切换语言",
         "help_markdown": "- '/markdown [on/off]': 切换Markdown渲染",
+        "help_stream": "- '/stream [on/off]': 切换流式响应",
+        "help_refresh": "- '/refresh': 手动刷新显示内容",
         "config_usage": "配置命令用法:",
         "config_list": "- /config list: 列出所有配置",
         "config_switch": "- /config switch [ID]: 切换配置",
@@ -195,7 +211,13 @@
         "config_edit": "- /config edit [ID]: 编辑配置",
         "config_delete": "- /config delete [ID]: 删除配置",
         "config_current": "- /config current: 查看当前配置",
-        "unknown_command": "未知命令: {0}。输入 '/help' 查看帮助"
+        "unknown_command": "未知命令: {command}。输入 '/help' 查看帮助",
+        "refresh_desc": "手动刷新显示内容"
+    },
+    "refresh": {
+        "completed": "显示内容已刷新",
+        "no_content": "没有可刷新的内容",
+        "failed": "刷新显示失败: {error}"
     },
     "history": {
         "status": "历史记录状态:",
@@ -230,7 +252,8 @@
         "error": "处理消息时出错: {error}",
         "simple_error": "处理请求时出错: {error}",
         "load_config_first": "请先加载配置",
-        "processing_request": "正在处理您的请求，请稍候..."
+        "processing_request": "正在处理您的请求，请稍候...",
+        "app_launch": "程序启动中..."
     },
     "ai": {
         "greeting": "我是 {0}，很高兴见到你！",
