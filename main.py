@@ -17,7 +17,7 @@ from loading_animation import start_loading, stop_loading, loading_context
 start_loading(t('processing.app_launch'))
 
 # 版本信息
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 import os
 import sys
