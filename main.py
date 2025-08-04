@@ -5,6 +5,17 @@ OpenAI Chat Tool CLI (octool_cli)
 一个基于 OpenAI 库编写的一个简单的命令行 API 聊天工具，支持多种模型、多语言界面和智能功能
 """
 
+# 在所有其他导入之前启动早期加载动画
+#from early_loading import start_early_loading, stop_early_loading
+# start_early_loading("程序启动中...")
+
+# 先初始化i18n，再启动加载动画
+from i18n import init_i18n, t, set_language, get_language
+init_i18n()  # 提前初始化
+
+from loading_animation import start_loading, stop_loading, loading_context
+start_loading(t('processing.app_launch'))
+
 # 版本信息
 VERSION = "1.1.0"
 
@@ -14,13 +25,8 @@ import time
 import yaml
 import argparse
 from typing import Dict, Any, Optional, List
-from openai import OpenAI
-
-# 导入自定义模块
-from history import create_history_manager, ChatHistory
-from summary import create_summarizer, ChatSummarizer
+# 导入自定义模块 - 延迟导入重型模块以提升启动速度
 from template import process_template
-from i18n import init_i18n, t, set_language, get_language
 from markdown_renderer import render_ai_response, render_streaming_response, render_system_message
 
 try:
@@ -248,9 +254,6 @@ class ChatTool:
         self.history_manager = None
         self.summarizer = None
         
-        # 初始化i18n
-        init_i18n()
-        
         # 帮助信息
         self.help_msg = f"""{COLOR_YELLOW}{t('commands.help_title')}{COLOR_BLUE}
 - '/help': {t('commands.help_desc')}
@@ -264,6 +267,7 @@ class ChatTool:
 - '/config current': {t('commands.config_current_desc')}
 - '/history': {t('commands.history_desc')}
 - '/new': {t('commands.new_desc')}
+- '/refresh': {t('commands.refresh_desc')}
 - '/summary': {t('commands.summary_desc')}
 - '/last_summary': {t('commands.last_summary_desc')}
 - '/lang [language]': {t('commands.lang_desc')}
@@ -309,6 +313,7 @@ class ChatTool:
     def validate_api(self, api_key: str, api_endpoint: str) -> bool:
         """验证API有效性"""
         try:
+            from openai import OpenAI  # 延迟导入
             client = OpenAI(api_key=api_key, base_url=api_endpoint)
             client.models.list()
             return True
@@ -425,10 +430,15 @@ class ChatTool:
         # 设置当前配置
         self.current_config = config
         self.current_config_id = config_id
+        
+        # 延迟导入OpenAI
+        from openai import OpenAI
         self.client = OpenAI(api_key=api_key, base_url=api_endpoint)
         
         # 初始化历史记录管理器
         if config.get('history', False):
+            # 延迟导入history模块
+            from history import create_history_manager
             self.history_manager = create_history_manager(config_id)
             self.history_manager.model = config.get('model', 'deepseek-chat')
             
@@ -440,6 +450,8 @@ class ChatTool:
         
         # 初始化总结器
         if config.get('summary', False) and config.get('history', False):
+            # 延迟导入summary模块
+            from summary import create_summarizer
             self.summarizer = create_summarizer(api_key, api_endpoint, config.get('model', 'deepseek-chat'))
         
         config_name = self.config_manager.get_multilang_field(config, 'name')
@@ -719,6 +731,38 @@ class ChatTool:
             print(f"{COLOR_RED}{t('markdown.invalid_usage')}{COLOR_RESET}")
             print(f"{COLOR_YELLOW}{t('markdown.usage_hint')}{COLOR_RESET}")
     
+    def handle_stream_command(self, command: str) -> None:
+        """处理流式响应切换命令"""
+        parts = command.split()
+        
+        if len(parts) == 1:
+            # 显示当前流式响应状态
+            current_status = self.current_config.get('stream', True)
+            status_text = t('stream.enabled') if current_status else t('stream.disabled')
+            print(f"{COLOR_CYAN}{t('stream.current_status')}: {status_text}{COLOR_RESET}")
+            print(f"{COLOR_YELLOW}{t('stream.usage_hint')}{COLOR_RESET}")
+        elif len(parts) == 2:
+            option = parts[1].lower()
+            
+            if option in ['on', 'enable', '开启', '启用']:
+                self.current_config['stream'] = True
+                if self.config_manager.update_config(self.current_config_id, self.current_config):
+                    print(f"{COLOR_GREEN}{t('stream.enabled_success')}{COLOR_RESET}")
+                else:
+                    print(f"{COLOR_RED}{t('stream.update_failed')}{COLOR_RESET}")
+            elif option in ['off', 'disable', '关闭', '禁用']:
+                self.current_config['stream'] = False
+                if self.config_manager.update_config(self.current_config_id, self.current_config):
+                    print(f"{COLOR_GREEN}{t('stream.disabled_success')}{COLOR_RESET}")
+                else:
+                    print(f"{COLOR_RED}{t('stream.update_failed')}{COLOR_RESET}")
+            else:
+                print(f"{COLOR_RED}{t('stream.invalid_option', option=option)}{COLOR_RESET}")
+                print(f"{COLOR_YELLOW}{t('stream.usage_hint')}{COLOR_RESET}")
+        else:
+            print(f"{COLOR_RED}{t('stream.invalid_usage')}{COLOR_RESET}")
+            print(f"{COLOR_YELLOW}{t('stream.usage_hint')}{COLOR_RESET}")
+    
     def handle_command(self, user_input: str) -> bool:
         """处理用户命令"""
         if not user_input.startswith('/'):
@@ -748,6 +792,10 @@ class ChatTool:
         
         elif command.startswith('/markdown'):
             self.handle_markdown_command(user_input)
+            return True
+        
+        elif command.startswith('/stream'):
+            self.handle_stream_command(user_input)
             return True
         
         elif command == '/config':
@@ -787,6 +835,12 @@ class ChatTool:
         
         elif command == '/last_summary':
             return self.handle_last_summary_command()
+        
+        elif command == '/refresh':
+            from markdown_renderer import refresh_display
+            refresh_display()
+            print(f"{COLOR_GREEN}{t('refresh.completed')}{COLOR_RESET}")
+            return True
         
         elif command == '/version':
             print(f"{COLOR_CYAN}{t('version.title')}{COLOR_RESET}")
@@ -863,19 +917,20 @@ class ChatTool:
                             ai_response += content
                     print()  # 换行
             else:
-                # 非流式响应 - 显示处理消息
-                print(f"\n{COLOR_BLUE}{t('processing.processing_request')}{COLOR_RESET}")
+                # 非流式响应 - 使用加载动画
+                start_loading(t('processing.processing_request'))
                 
-                response = self.client.chat.completions.create(
-                    model=self.current_config.get('model', 'deepseek-chat'),
-                    messages=messages,
-                    stream=False
-                )
-                
-                # 清除"正在处理"消息
-                print("\033[F\033[K", end="")
-                
-                ai_response = response.choices[0].message.content
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.current_config.get('model', 'deepseek-chat'),
+                        messages=messages,
+                        stream=False
+                    )
+                    
+                    ai_response = response.choices[0].message.content
+                finally:
+                    # 确保停止加载动画
+                    stop_loading()
                 
                 # 根据配置决定是否使用Markdown渲染
                 use_markdown = self.current_config.get('markdown', True)
@@ -919,46 +974,91 @@ class ChatTool:
     def run_simple_mode(self, args):
         """极简模式运行"""
         if not args.prompt:
+            stop_loading()
             print(f"{COLOR_RED}{t('simple_mode.prompt_required')}{COLOR_RESET}")
             return
         
-        # 使用临时配置
-        api_key = args.key or "your_api_key_here"
-        api_endpoint = args.endpoint or "https://api.deepseek.com"
-        model = args.model or "deepseek-chat"
+        # 使用临时配置，优先使用命令行参数，其次使用默认配置
+        api_key = args.key
+        api_endpoint = args.endpoint
+        model = args.model
+        
+        # 如果没有提供命令行参数，尝试从默认配置获取
+        if not api_key or not api_endpoint or not model:
+            default_config = None
+            if self.config_manager.default_config_id:
+                default_config = self.config_manager.get_config(self.config_manager.default_config_id)
+            
+            if default_config:
+                api_key = api_key or default_config.get('API_key')
+                api_endpoint = api_endpoint or default_config.get('API_endpoint')
+                model = model or default_config.get('model', 'deepseek-chat')
+        
+        # 设置默认值
+        api_key = api_key or "your_api_key_here"
+        api_endpoint = api_endpoint or "https://api.deepseek.com"
+        model = model or "deepseek-chat"
         
         if api_key == "your_api_key_here":
+            stop_loading()
             print(f"{COLOR_RED}{t('simple_mode.api_key_required')}{COLOR_RESET}")
             return
         
         if not self.validate_api(api_key, api_endpoint):
+            stop_loading()
             return
         
         try:
+            from openai import OpenAI
             client = OpenAI(api_key=api_key, base_url=api_endpoint)
-            
-            print(f"{COLOR_BLUE}{t('simple_mode.processing')}{COLOR_RESET}")
             
             # 为极简模式添加基本的系统提示词和时间信息
             system_prompt = t('simple_mode.default_system_prompt')
             enhanced_prompt = ensure_datetime_in_prompt(system_prompt)
             processed_prompt = process_template(enhanced_prompt)
+            stop_loading()
             
-            # 极简模式默认使用非流式响应
+            # 根据参数决定是否使用流式响应
+            use_stream = not args.unstream
+
+            if not use_stream:
+                start_loading(t('processing.processing_request'))
+            
             response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": processed_prompt},
                     {"role": "user", "content": args.prompt}
                 ],
-                stream=False
+                stream=use_stream
             )
             
-            # 极简模式默认使用Markdown渲染（可通过参数控制）
-            ai_response = response.choices[0].message.content
-            render_ai_response(ai_response, t('simple_mode.ai_reply'))
+            # 根据参数决定输出方式
+            if args.unstream:
+                # 非流式响应
+                if args.nomd:
+                    stop_loading()
+                    # 直接输出原始文本，不使用Markdown格式化
+                    print(response.choices[0].message.content)
+                else:
+                    # 使用Markdown格式化但非流式
+                    stop_loading()
+                    from markdown_renderer import render_markdown
+                    render_markdown(response.choices[0].message.content)
+            else:
+                # 流式响应
+                if args.nomd:
+                    # 流式输出但不使用Markdown格式化
+                    for chunk in response:
+                        if chunk.choices[0].delta.content is not None:
+                            print(chunk.choices[0].delta.content, end='', flush=True)
+                    print()  # 换行
+                else:
+                    # 流式Markdown渲染
+                    render_streaming_response(response, t('simple_mode.ai_reply'))
             
         except Exception as e:
+            stop_loading()
             print(f"{COLOR_RED}{t('simple_mode.processing_error', error=str(e))}{COLOR_RESET}")
     
     def run_interactive_mode(self, config_id: str = None):
@@ -974,6 +1074,7 @@ class ChatTool:
         # 如果没有配置或加载失败，进行首次配置
         if not self.current_config:
             if not self.config_manager.configs:
+                stop_loading()
                 print(f"{COLOR_YELLOW}{t('startup.first_time_setup')}{COLOR_RESET}")
                 
                 # 首次使用时先选择语言
@@ -989,11 +1090,13 @@ class ChatTool:
                     return
             else:
                 if not self.load_config(config_id):
+                    stop_loading()
                     print(f"{COLOR_RED}{t('startup.cannot_load_config')}{COLOR_RESET}")
                     return
         
         # 清屏并显示欢迎信息
         print("\033[H\033[J", end="")
+        stop_loading()
         self.show_welcome()
         
         # 主循环
@@ -1042,44 +1145,67 @@ def parse_arguments():
     parser.add_argument('--endpoint', type=str, help=t('args.endpoint_help'))
     parser.add_argument('--model', '-m', type=str, help=t('args.model_help'))
     parser.add_argument('--prompt', '-p', type=str, help=t('args.prompt_help'))
+    parser.add_argument('--nomd', '-n', action='store_true', help=t('args.nomd_help'))
+    parser.add_argument('--unstream', '-u', action='store_true', help=t('args.unstream_help'))
     
     return parser.parse_args()
 
 def main():
     """主函数"""
-    # 先初始化i18n
-    init_i18n()
-    
-    # 尝试从配置文件中获取语言设置
-    config_manager = ConfigManager()
-    if config_manager.configs:
-        # 获取默认配置的语言设置
-        default_config = config_manager.get_config(config_manager.default_config_id)
-        if default_config and 'language' in default_config:
-            set_language(default_config['language'])
-    
-    args = parse_arguments()
-    tool = ChatTool()
-    
-    # 列出配置
-    if args.list:
-        configs = tool.config_manager.list_configs()
-        if not configs:
-            print(f"{COLOR_YELLOW}{t('config.no_configs_available')}{COLOR_RESET}")
-        else:
-            print(f"{COLOR_YELLOW}{t('config.available_configs')}{COLOR_RESET}")
-            for config_id, name, aliases in configs:
-                alias_str = f" ({t('config.alias_label')}: {', '.join(aliases)})" if aliases else ""
-                print(f"{COLOR_BLUE}- {config_id}: {name}{alias_str}{COLOR_RESET}")
-        return
-    
-    # 极简模式
-    if args.simple:
-        tool.run_simple_mode(args)
-        return
-    
-    # 交互模式
-    tool.run_interactive_mode(args.config)
+    try:
+        # 先初始化i18n
+        init_i18n()
+        
+        # 包装parse_arguments调用以处理--help等参数的SystemExit异常
+        try:
+            args = parse_arguments()
+        except SystemExit as e:
+            # argparse在显示帮助信息后会抛出SystemExit异常
+            # 确保在退出前停止加载动画
+            stop_loading()
+            raise e
+        
+        tool = ChatTool()
+        
+        # 尝试从配置文件中获取语言设置（复用ChatTool中的config_manager）
+        if tool.config_manager.configs:
+            # 获取默认配置的语言设置
+            default_config = tool.config_manager.get_config(tool.config_manager.default_config_id)
+            if default_config and 'language' in default_config:
+                set_language(default_config['language'])
+        
+        # 列出配置
+        if args.list:
+            configs = tool.config_manager.list_configs()
+            stop_loading()
+            if not configs:
+                print(f"{COLOR_YELLOW}{t('config.no_configs_available')}{COLOR_RESET}")
+            else:
+                print(f"{COLOR_YELLOW}{t('config.available_configs')}{COLOR_RESET}")
+                for config_id, name, aliases in configs:
+                    alias_str = f" ({t('config.alias_label')}: {', '.join(aliases)})" if aliases else ""
+                    print(f"{COLOR_BLUE}- {config_id}: {name}{alias_str}{COLOR_RESET}")
+            return
+        
+        # 极简模式
+        if args.simple:
+            tool.run_simple_mode(args)
+            stop_loading()
+            return
+        
+        # 交互模式
+        tool.run_interactive_mode(args.config)
+
+    except KeyboardInterrupt:
+        # 处理用户中断
+        stop_loading()
+        print(f"\n{COLOR_YELLOW}程序被用户中断{COLOR_RESET}")
+        sys.exit(0)
+    except Exception as e:
+        # 如果启动过程中出错，确保停止加载动画
+        stop_loading()
+        print(f"\n{COLOR_RED}程序启动失败: {str(e)}{COLOR_RESET}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
