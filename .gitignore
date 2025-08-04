@@ -5,12 +5,17 @@ chat-history
 .octool_cli
 __pycache__
 
+# MCP 文件
+node_modules
+package*.json
+
 # 测试文件
 test_*.py
 *_test.py
 tests/
 *.test.py
 test/
+check_i18n.py
 
 # 构建文件
 build/
