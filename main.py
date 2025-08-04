@@ -21,6 +21,7 @@ from history import create_history_manager, ChatHistory
 from summary import create_summarizer, ChatSummarizer
 from template import process_template
 from i18n import init_i18n, t, set_language, get_language
+from markdown_renderer import render_ai_response, render_streaming_response, render_system_message
 
 try:
     from prompt_toolkit import prompt
@@ -235,7 +236,7 @@ class ConfigManager:
             self.configs[config_id] = config_data
             return self.save_configs()
         return False
-
+    
 class ChatTool:
     """聊天工具主类"""
     
@@ -263,8 +264,28 @@ class ChatTool:
 - '/config current': {t('commands.config_current_desc')}
 - '/history': {t('commands.history_desc')}
 - '/new': {t('commands.new_desc')}
+- '/summary': {t('commands.summary_desc')}
+- '/last_summary': {t('commands.last_summary_desc')}
 - '/lang [language]': {t('commands.lang_desc')}
+- '/markdown [on/off]': {t('commands.markdown_desc')}
 {COLOR_RESET}"""
+    
+    def _parse_token_value(self, token_input: str, default_value: int) -> int:
+        """解析Token值，支持K/k单位"""
+        if not token_input:
+            return default_value
+        
+        token_input = token_input.strip().upper()
+        
+        try:
+            if token_input.endswith('K'):
+                # 移除K并转换为数字，然后乘以1000
+                number = float(token_input[:-1])
+                return int(number * 1000)
+            else:
+                return int(token_input)
+        except ValueError:
+            return default_value
     
     def select_initial_language(self):
         """首次使用时选择语言"""
@@ -341,17 +362,17 @@ class ChatTool:
         summary_input = input(f"{COLOR_YELLOW}{t('input.enable_summary_prompt')}{COLOR_RESET}").strip().lower()
         summary = summary_input != 'n' and history  # 总结需要历史记录支持
         
-        max_tokens = input(f"{COLOR_YELLOW}{t('input.max_tokens_prompt')}{COLOR_RESET}").strip()
-        try:
-            max_tokens = int(max_tokens) if max_tokens else 4000
-        except ValueError:
-            max_tokens = 4000
+        # Token配置 - 支持K/k单位
+        max_tokens_input = input(f"{COLOR_YELLOW}{t('input.max_tokens_prompt')}{COLOR_RESET}").strip()
+        max_tokens = self._parse_token_value(max_tokens_input, 64000)  # 默认64K
         
-        summary_tokens = input(f"{COLOR_YELLOW}{t('input.summary_tokens_prompt')}{COLOR_RESET}").strip()
-        try:
-            summary_tokens = int(summary_tokens) if summary_tokens else 1000
-        except ValueError:
-            summary_tokens = 1000
+        # 流式响应配置
+        stream_input = input(f"{COLOR_YELLOW}{t('input.enable_stream_prompt')}{COLOR_RESET}").strip().lower()
+        stream = stream_input != 'n'  # 默认启用流式响应
+        
+        # Markdown渲染配置
+        markdown_input = input(f"{COLOR_YELLOW}{t('input.enable_markdown_prompt')}{COLOR_RESET}").strip().lower()
+        markdown = markdown_input != 'n'  # 默认启用Markdown渲染
         
         return {
             'name': name,
@@ -368,7 +389,8 @@ class ChatTool:
             'history': history,
             'summary': summary,
             'max_tokens': max_tokens,
-            'summary_tokens': summary_tokens,
+            'stream': stream,
+            'markdown': markdown,
             'language': get_language()
         }
     
@@ -492,11 +514,13 @@ class ChatTool:
                 config = self.current_config
                 print(f"{COLOR_YELLOW}{t('config.current_info_title')}{COLOR_RESET}")
                 print(f"{COLOR_BLUE}ID: {self.current_config_id}{COLOR_RESET}")
-                print(f"{COLOR_BLUE}{t('config.name_label')}: {config.get('name', 'Unknown')}{COLOR_RESET}")
+                config_name = self.config_manager.get_multilang_field(config, 'name')
+                print(f"{COLOR_BLUE}{t('config.name_label')}: {config_name}{COLOR_RESET}")
                 print(f"{COLOR_BLUE}{t('config.ai_name_label')}: {config.get('ai_name', 'AI')}{COLOR_RESET}")
                 print(f"{COLOR_BLUE}{t('config.model_label')}: {config.get('model', 'Unknown')}{COLOR_RESET}")
                 print(f"{COLOR_BLUE}{t('config.history_label')}: {t('config.enabled') if config.get('history') else t('config.disabled')}{COLOR_RESET}")
                 print(f"{COLOR_BLUE}{t('config.summary_label')}: {t('config.enabled') if config.get('summary') else t('config.disabled')}{COLOR_RESET}")
+                print(f"{COLOR_BLUE}{t('config.markdown_label')}: {t('config.enabled') if config.get('markdown', True) else t('config.disabled')}{COLOR_RESET}")
             else:
                 print(f"{COLOR_RED}{t('config.no_config_loaded')}{COLOR_RESET}")
         
@@ -559,6 +583,142 @@ class ChatTool:
             print(f"{COLOR_RED}{t('lang.invalid_usage')}{COLOR_RESET}")
             print(f"{COLOR_YELLOW}{t('lang.usage_hint')}{COLOR_RESET}")
     
+    def handle_summary_command(self) -> bool:
+        """处理主动总结命令"""
+        if not self.history_manager:
+            print(f"{COLOR_RED}{t('summary.history_not_enabled')}{COLOR_RESET}")
+            return True
+        
+        # 显示历史记录状态
+        info = self.history_manager.get_session_info()
+        print(f"{COLOR_YELLOW}{t('summary.status_title')}{COLOR_RESET}")
+        print(f"{COLOR_BLUE}{t('history.session_id_label')}: {info['session_id']}{COLOR_RESET}")
+        print(f"{COLOR_BLUE}{t('history.message_count_label')}: {info['message_count']}{COLOR_RESET}")
+        print(f"{COLOR_BLUE}{t('history.total_tokens_label')}: {info['total_tokens']}{COLOR_RESET}")
+        
+        # 显示总结统计信息
+        if self.summarizer:
+            stats = self.summarizer.get_summary_stats(self.history_manager.messages)
+            print(f"{COLOR_BLUE}{t('history.summary_count_label')}: {stats['total_summaries']}{COLOR_RESET}")
+            print(f"{COLOR_BLUE}{t('history.compression_ratio_label')}: {stats['compression_ratio']}{COLOR_RESET}")
+        
+        # 检查是否有足够的消息进行总结
+        if len(self.history_manager.messages) <= 4:  # system + 至少3条对话
+            print(f"{COLOR_YELLOW}{t('summary.insufficient_messages')}{COLOR_RESET}")
+            return True
+        
+        # 二次确认
+        print(f"\n{COLOR_YELLOW}{t('summary.confirm_prompt')}{COLOR_RESET}")
+        confirm = input(f"{COLOR_CYAN}{t('summary.confirm_input')}{COLOR_RESET}").strip().lower()
+        
+        if confirm not in ['y', 'yes', '是', '确认']:
+            print(f"{COLOR_YELLOW}{t('summary.cancelled')}{COLOR_RESET}")
+            return True
+        
+        # 执行总结
+        try:
+            if not self.summarizer:
+                # 即使未开启总结配置，也允许手动总结
+                api_key = self.current_config.get('API_key')
+                api_endpoint = self.current_config.get('API_endpoint')
+                model = self.current_config.get('model', 'deepseek-chat')
+                self.summarizer = create_summarizer(api_key, api_endpoint, model)
+            
+            print(f"\n{COLOR_YELLOW}{t('summary.generating')}{COLOR_RESET}")
+            
+            max_tokens_raw = self.current_config.get('max_tokens', 64000)
+            max_tokens = self._parse_token_value(str(max_tokens_raw), 64000)
+            keep_recent = 3  # 保留最近3条消息
+        
+            summary_msg, new_messages = self.summarizer.summarize_messages(
+                self.history_manager.messages, keep_recent, max_tokens
+            )
+            
+            if summary_msg:
+                self.history_manager.messages = new_messages
+                self.history_manager.total_tokens = sum(msg.get('tokens', 0) for msg in new_messages)
+                self.history_manager.save_to_file()
+                print(f"{COLOR_GREEN}{t('summary.manual_completed')}{COLOR_RESET}")
+            else:
+                print(f"{COLOR_RED}{t('summary.failed')}{COLOR_RESET}")
+        except Exception as e:
+            print(f"{COLOR_RED}{t('summary.generation_error', error=str(e))}{COLOR_RESET}")
+        
+        return True
+    
+    def handle_last_summary_command(self) -> bool:
+        """处理查看上次总结内容命令"""
+        if not self.history_manager:
+            print(f"{COLOR_RED}{t('summary.history_not_enabled')}{COLOR_RESET}")
+            return True
+        
+        # 查找最近的总结消息
+        summaries = []
+        for msg in reversed(self.history_manager.messages):
+            if msg.get('type') == 'summary' and msg.get('role') == 'system':
+                summaries.append(msg)
+        
+        if not summaries:
+            print(f"{COLOR_YELLOW}{t('summary.no_summaries_found')}{COLOR_RESET}")
+            return True
+        
+        # 显示最近的总结
+        latest_summary = summaries[0]
+        content = latest_summary.get('content', '')
+        
+        # 移除总结前缀
+        prefix = t('summary.context_prefix')
+        if content.startswith(prefix):
+            content = content[len(prefix):].strip()
+        
+        print(f"{COLOR_YELLOW}{t('summary.last_summary_title')}{COLOR_RESET}")
+        print(f"{COLOR_CYAN}{t('summary.timestamp_label')}: {latest_summary.get('timestamp', 'Unknown')}{COLOR_RESET}")
+        
+        # 显示总结元数据
+        metadata = latest_summary.get('summary_metadata', {})
+        if metadata:
+            print(f"{COLOR_BLUE}{t('summary.original_messages_label')}: {metadata.get('original_message_count', 'Unknown')}{COLOR_RESET}")
+            print(f"{COLOR_BLUE}{t('summary.original_tokens_label')}: {metadata.get('original_tokens', 'Unknown')}{COLOR_RESET}")
+            print(f"{COLOR_BLUE}{t('summary.summary_tokens_label')}: {metadata.get('summarized_tokens', 'Unknown')}{COLOR_RESET}")
+            print(f"{COLOR_BLUE}{t('summary.compression_ratio_label')}: {metadata.get('compression_ratio', 'Unknown')}{COLOR_RESET}")
+        
+        print(f"\n{COLOR_GREEN}{t('summary.content_label')}:{COLOR_RESET}")
+        print(content)
+        
+        return True
+    
+    def handle_markdown_command(self, command: str) -> None:
+        """处理Markdown渲染切换命令"""
+        parts = command.split()
+        
+        if len(parts) == 1:
+            # 显示当前Markdown渲染状态
+            current_status = self.current_config.get('markdown', True)
+            status_text = t('markdown.enabled') if current_status else t('markdown.disabled')
+            print(f"{COLOR_CYAN}{t('markdown.current_status')}: {status_text}{COLOR_RESET}")
+            print(f"{COLOR_YELLOW}{t('markdown.usage_hint')}{COLOR_RESET}")
+        elif len(parts) == 2:
+            option = parts[1].lower()
+            
+            if option in ['on', 'enable', '开启', '启用']:
+                self.current_config['markdown'] = True
+                if self.config_manager.update_config(self.current_config_id, self.current_config):
+                    print(f"{COLOR_GREEN}{t('markdown.enabled_success')}{COLOR_RESET}")
+                else:
+                    print(f"{COLOR_RED}{t('markdown.update_failed')}{COLOR_RESET}")
+            elif option in ['off', 'disable', '关闭', '禁用']:
+                self.current_config['markdown'] = False
+                if self.config_manager.update_config(self.current_config_id, self.current_config):
+                    print(f"{COLOR_GREEN}{t('markdown.disabled_success')}{COLOR_RESET}")
+                else:
+                    print(f"{COLOR_RED}{t('markdown.update_failed')}{COLOR_RESET}")
+            else:
+                print(f"{COLOR_RED}{t('markdown.invalid_option', option=option)}{COLOR_RESET}")
+                print(f"{COLOR_YELLOW}{t('markdown.usage_hint')}{COLOR_RESET}")
+        else:
+            print(f"{COLOR_RED}{t('markdown.invalid_usage')}{COLOR_RESET}")
+            print(f"{COLOR_YELLOW}{t('markdown.usage_hint')}{COLOR_RESET}")
+    
     def handle_command(self, user_input: str) -> bool:
         """处理用户命令"""
         if not user_input.startswith('/'):
@@ -584,6 +744,10 @@ class ChatTool:
         
         elif command.startswith('/lang'):
             self.handle_lang_command(user_input)
+            return True
+        
+        elif command.startswith('/markdown'):
+            self.handle_markdown_command(user_input)
             return True
         
         elif command == '/config':
@@ -617,6 +781,12 @@ class ChatTool:
             else:
                 print(f"{COLOR_YELLOW}{t('history.cannot_create_session')}{COLOR_RESET}")
             return True
+        
+        elif command == '/summary':
+            return self.handle_summary_command()
+        
+        elif command == '/last_summary':
+            return self.handle_last_summary_command()
         
         elif command == '/version':
             print(f"{COLOR_CYAN}{t('version.title')}{COLOR_RESET}")
@@ -665,22 +835,56 @@ class ChatTool:
                     {"role": "user", "content": user_input}
                 ]
             
-            print(f"\n{COLOR_BLUE}{t('processing.processing_request')}{COLOR_RESET}")
-            
-            # 调用API
-            response = self.client.chat.completions.create(
-                model=self.current_config.get('model', 'deepseek-chat'),
-                messages=messages,
-                stream=False
-            )
-            
-            print("\033[F\033[K", end="")  # 清除"正在处理"行
-            
+            # 检查是否启用流式响应
+            use_stream = self.current_config.get('stream', True)
             ai_name = self.current_config.get('ai_name', 'AI')
-            ai_response = response.choices[0].message.content
             
-            print(f"{COLOR_CYAN}{ai_name}:{COLOR_RESET}")
-            print(ai_response)
+            if use_stream:
+                # 流式响应 - 不显示"正在处理"消息，让Live组件直接处理
+                ai_response = ""
+                response = self.client.chat.completions.create(
+                    model=self.current_config.get('model', 'deepseek-chat'),
+                    messages=messages,
+                    stream=True
+                )
+                
+                # 对于流式响应，根据配置决定是否使用Markdown渲染
+                use_markdown = self.current_config.get('markdown', True)
+                if use_markdown:
+                    ai_response = render_streaming_response(response, ai_name)
+                else:
+                    # 不使用Markdown，直接输出文本
+                    ai_response = ""
+                    print(f"\n{COLOR_BLUE}💬 {ai_name}{COLOR_RESET}")
+                    for chunk in response:
+                        if chunk.choices[0].delta.content:
+                            content = chunk.choices[0].delta.content
+                            print(content, end="", flush=True)
+                            ai_response += content
+                    print()  # 换行
+            else:
+                # 非流式响应 - 显示处理消息
+                print(f"\n{COLOR_BLUE}{t('processing.processing_request')}{COLOR_RESET}")
+                
+                response = self.client.chat.completions.create(
+                    model=self.current_config.get('model', 'deepseek-chat'),
+                    messages=messages,
+                    stream=False
+                )
+                
+                # 清除"正在处理"消息
+                print("\033[F\033[K", end="")
+                
+                ai_response = response.choices[0].message.content
+                
+                # 根据配置决定是否使用Markdown渲染
+                use_markdown = self.current_config.get('markdown', True)
+                if use_markdown:
+                    render_ai_response(ai_response, ai_name)
+                else:
+                    # 不使用Markdown，直接输出文本
+                    print(f"\n{COLOR_BLUE}💬 {ai_name}{COLOR_RESET}")
+                    print(ai_response)
             
             # 添加AI回复到历史记录
             if self.history_manager:
@@ -688,14 +892,15 @@ class ChatTool:
                 
                 # 检查是否需要总结
                 if self.summarizer and self.current_config.get('summary', False):
-                    max_tokens = self.current_config.get('max_tokens', 4000)
+                    max_tokens_raw = self.current_config.get('max_tokens', 4000)
+                    max_tokens = self._parse_token_value(str(max_tokens_raw), 4000)
                     
                     if self.summarizer.should_summarize(self.history_manager.get_total_tokens(), max_tokens):
                         print(f"\n{COLOR_YELLOW}{t('summary.generating')}{COLOR_RESET}")
                         
                         keep_recent = 3  # 保留最近3条消息
                         summary_msg, new_messages = self.summarizer.summarize_messages(
-                            self.history_manager.messages, keep_recent
+                            self.history_manager.messages, keep_recent, max_tokens
                         )
                         
                         if summary_msg:
@@ -739,6 +944,7 @@ class ChatTool:
             enhanced_prompt = ensure_datetime_in_prompt(system_prompt)
             processed_prompt = process_template(enhanced_prompt)
             
+            # 极简模式默认使用非流式响应
             response = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -748,8 +954,9 @@ class ChatTool:
                 stream=False
             )
             
-            print(f"\n{COLOR_CYAN}{t('simple_mode.ai_reply')}{COLOR_RESET}")
-            print(response.choices[0].message.content)
+            # 极简模式默认使用Markdown渲染（可通过参数控制）
+            ai_response = response.choices[0].message.content
+            render_ai_response(ai_response, t('simple_mode.ai_reply'))
             
         except Exception as e:
             print(f"{COLOR_RED}{t('simple_mode.processing_error', error=str(e))}{COLOR_RESET}")
