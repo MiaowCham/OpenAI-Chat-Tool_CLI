@@ -16,18 +16,33 @@ class ChatSummarizer:
     
     def __init__(self, api_key: str, api_endpoint: str, model: str = "deepseek-chat"):
         """
-        初始化总结器
+        初始化聊天总结器
         
         Args:
-            api_key: API密钥
+            api_key: OpenAI API密钥
             api_endpoint: API端点
             model: 使用的模型
         """
         self.client = OpenAI(api_key=api_key, base_url=api_endpoint)
         self.model = model
-        
-        # 总结提示词模板
         self.summary_prompt = t('summary.prompt_template')
+    
+    def _parse_token_value(self, token_input: str, default_value: int) -> int:
+        """解析Token值，支持K/k单位"""
+        if not token_input:
+            return default_value
+        
+        token_input = str(token_input).strip().upper()
+        
+        try:
+            if token_input.endswith('K'):
+                # 移除K并转换为数字，然后乘以1000
+                number = float(token_input[:-1])
+                return int(number * 1000)
+            else:
+                return int(token_input)
+        except ValueError:
+            return default_value
     
     def _format_messages_for_summary(self, messages: List[Dict[str, Any]]) -> str:
         """
@@ -86,8 +101,8 @@ class ChatSummarizer:
         # 获取被总结消息的ID列表
         summarized_ids = [msg.get("id", "") for msg in summarized_messages]
         
-        # 计算总结内容的Token数量（简单估算）
-        summary_tokens = len(summary_content) // 4 + 1
+        # 计算总结的Token数（简单估算）
+        summary_tokens = len(str(summary_content)) // 4 + 1
         
         summary_message = {
             "id": f"summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -108,14 +123,58 @@ class ChatSummarizer:
         
         return summary_message
     
+    def _save_full_context(self, messages: List[Dict[str, Any]]) -> bool:
+        """
+        保存完整上下文到 /chat-history/full 路径
+        
+        Args:
+            messages: 完整的消息列表
+            
+        Returns:
+            是否保存成功
+        """
+        try:
+            import os
+            from datetime import datetime
+            
+            # 创建完整上下文保存目录
+            full_context_dir = os.path.join("chat-history", "full")
+            os.makedirs(full_context_dir, exist_ok=True)
+            
+            # 生成文件名（包含时间戳）
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"full_context_{timestamp}.json"
+            filepath = os.path.join(full_context_dir, filename)
+            
+            # 保存完整上下文
+            full_context_data = {
+                "saved_at": datetime.now().isoformat(),
+                "trigger_reason": "summary_triggered",
+                "total_messages": len(messages),
+                "total_tokens": sum(msg.get("tokens", 0) for msg in messages),
+                "messages": messages
+            }
+            
+            import json
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(full_context_data, f, ensure_ascii=False, indent=2)
+            
+            print(f"完整上下文已保存到: {filepath}")
+            return True
+            
+        except Exception as e:
+            print(f"保存完整上下文失败: {e}")
+            return False
+    
     def summarize_messages(self, messages: List[Dict[str, Any]], 
-                          keep_recent: int = 3) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
+                          keep_recent: int = 3, max_tokens: int = 64000) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
         """
         对消息列表进行总结
         
         Args:
             messages: 要总结的消息列表
             keep_recent: 保留最近的消息数量
+            max_tokens: 最大Token限制，用于计算总结Token数
             
         Returns:
             (总结消息, 保留的消息列表)
@@ -144,6 +203,15 @@ class ChatSummarizer:
             if not conversation_text.strip():
                 return None, messages
             
+            # 确保max_tokens是整数类型，支持K单位
+            max_tokens = self._parse_token_value(str(max_tokens), 64000)
+            
+            # 计算总结Token限制（最大Token的1/4）
+            summary_max_tokens = max(500, max_tokens // 4)  # 最少500，最多为max_tokens的1/4
+            
+            # 确保不超过API限制（8192）
+            summary_max_tokens = min(summary_max_tokens, 8192)
+            
             # 调用AI进行总结
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -154,7 +222,7 @@ class ChatSummarizer:
                     }
                 ],
                 temperature=0.3,  # 较低的温度以获得更一致的总结
-                max_tokens=1000   # 限制总结长度
+                max_tokens=summary_max_tokens   # 基于最大Token动态计算
             )
             
             summary_content = response.choices[0].message.content.strip()
@@ -164,6 +232,9 @@ class ChatSummarizer:
             
             # 创建总结消息
             summary_message = self._create_summary_message(summary_content, messages_to_summarize)
+            
+            # 保存完整上下文到 /chat-history/full 路径
+            self._save_full_context(messages)
             
             # 构建新的消息列表：system消息 + 总结消息 + 保留的消息
             new_messages = system_messages + [summary_message] + messages_to_keep
@@ -187,6 +258,8 @@ class ChatSummarizer:
         Returns:
             是否需要总结
         """
+        # 确保max_tokens是整数类型，支持K单位
+        max_tokens = self._parse_token_value(str(max_tokens), 64000)
         return total_tokens >= (max_tokens * threshold_ratio)
     
     def get_summary_stats(self, messages: List[Dict[str, Any]]) -> Dict[str, Any]:
