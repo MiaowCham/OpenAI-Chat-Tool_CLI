@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     
     env:
       PYTHONIOENCODING: utf-8
@@ -28,6 +28,7 @@ jobs:
         pip install openai
         pip install packaging
         pip install prompt-toolkit
+        pip install tiktoken
         
     - name: Create log directory
       run: |
@@ -42,4 +43,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: OpenAI_Chat_Tool_CLI
-        path: dist/octool_cli.exe
+        path: dist/octool_cli/
