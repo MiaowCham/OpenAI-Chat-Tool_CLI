@@ -1,0 +1,28 @@
+TODO*
+chat-history
+.trae
+.venv
+.octool_cli
+__pycache__
+
+# 测试文件
+test_*.py
+*_test.py
+tests/
+*.test.py
+test/
+
+# 构建文件
+build/
+dist/
+*.spec
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志文件
+*.log
+logs/

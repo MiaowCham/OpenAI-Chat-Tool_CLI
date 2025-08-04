@@ -1,0 +1,100 @@
+name: 🐛 Bug 反馈
+description: 报告程序中的错误或问题
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢您报告 Bug！请填写以下信息帮助我们更好地定位和解决问题。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 问题描述
+      description: 请详细描述遇到的问题
+      placeholder: 告诉我们发生了什么！
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 复现步骤
+      description: 请提供复现该问题的详细步骤
+      placeholder: |
+        1. 执行命令 '...'
+        2. 点击 '...'
+        3. 滚动到 '...'
+        4. 看到错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 期望行为
+      description: 请描述您期望发生的行为
+      placeholder: 告诉我们您期望发生什么！
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 实际行为
+      description: 请描述实际发生的行为
+      placeholder: 告诉我们实际发生了什么！
+    validations:
+      required: true
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: 版本信息
+      description: 您使用的是哪个版本？
+      options:
+        - 最新版本
+        - v1.0.0
+        - 其他（请在下方说明）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      description: 您使用的操作系统是？
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 请粘贴相关的错误日志或输出信息
+      render: shell
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 其他信息
+      description: 添加任何其他有助于解决问题的信息
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 确认事项
+      description: 提交前请确认以下事项
+      options:
+        - label: 我已经搜索过现有的 issues，确认这不是重复问题
+          required: true
+        - label: 我已经阅读了文档和 README
+          required: true
+        - label: 我提供的信息准确且完整
+          required: true
