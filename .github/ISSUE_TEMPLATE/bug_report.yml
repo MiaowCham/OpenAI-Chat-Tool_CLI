@@ -1,4 +1,4 @@
-name: 🐛 Bug 反馈
+name: 🐞 Bug 反馈
 description: 报告程序中的错误或问题
 title: "[Bug] "
 labels: ["bug"]
@@ -37,7 +37,7 @@ body:
     id: what-happened
     attributes:
       label: 问题描述
-      description: 请详细描述遇到的问题
+      description: 请详细描述遇到的问题，包括您期望发生的行为，与实际的情况
       placeholder: 告诉我们发生了什么！
     validations:
       required: true
@@ -54,15 +54,6 @@ body:
         4. 看到错误
     validations:
       required: false
-
-  - type: textarea
-    id: expected-behavior
-    attributes:
-      label: 期望/实际行为
-      description: 请描述您期望发生的行为，与实际的情况
-      placeholder: 告诉我们您期望发生什么，以及实际的情况！
-    validations:
-      required: true
 
   - type: textarea
     id: additional-context
