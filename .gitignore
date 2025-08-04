@@ -16,6 +16,7 @@ tests/
 *.test.py
 test/
 check_i18n.py
+early_loading.py
 
 # 构建文件
 build/
