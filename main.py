@@ -6,7 +6,7 @@ OpenAI Chat Tool CLI (octool_cli)
 """
 
 # 版本信息
-VERSION = "2.0.0"
+VERSION = "1.0.0"
 
 import os
 import sys

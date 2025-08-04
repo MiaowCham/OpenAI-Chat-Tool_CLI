@@ -16,6 +16,7 @@ test/
 build/
 dist/
 *.spec
+version_info.txt
 
 # IDE 文件
 .vscode/
