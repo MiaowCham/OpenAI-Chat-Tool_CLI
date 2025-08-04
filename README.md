@@ -22,6 +22,7 @@
 - [x] **模板变量系统** - 支持时间相关模板变量 (`{{time}}`, `{{date}}`, `{{datetime}}` 等)
 - [x] **多行输入** - 支持 Alt+Enter 换行，提升输入体验
 - [x] **丰富的文字提示** - 支持彩色输出和用户友好的界面
+- [x] **Markdown 终端渲染支持** - 基于 Rich 库实现的美丽的 Markdown 渲染
 - [x] **API Key 校验** - 自动验证 API 密钥可用性
 - [x] **指令系统** - 丰富的命令支持 (`/help`, `/config`, `/history`, `/lang` 等)
 - [x] **多平台支持** - 支持 Windows、Linux、macOS
@@ -43,6 +44,7 @@
  - **pyyaml** - YAML 配置文件处理
  - **packaging** - 版本管理
  - **prompt-toolkit** - 多行输入和终端交互
+ - **rich** - 对 Markdown 在命令行渲染的支持
  - **pyinstaller**（可选，用于 `build_exe.py` 构建可执行文件）
 
 ### 安装方法
