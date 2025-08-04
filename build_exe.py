@@ -4,9 +4,11 @@
 # - openai
 # - packaging
 # - prompt-toolkit
+# - rich
 
 # 安装方法（命令行执行）:
-# pip install pyinstaller pyyaml openai packaging prompt-toolkit
+# pip install -r requirements.txt
+# 或者手动安装: pip install pyinstaller pyyaml openai packaging prompt-toolkit rich
 import os
 import sys
 import subprocess
@@ -150,6 +152,7 @@ if __name__ == "__main__":
     check_and_install("pyyaml")
     check_and_install("openai")
     check_and_install("prompt-toolkit")
+    check_and_install("rich")
     check_and_install("tiktoken")
     # 清理旧目录
     clean_build_dirs()

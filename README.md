@@ -45,6 +45,7 @@
  - **packaging** - 版本管理
  - **prompt-toolkit** - 多行输入和终端交互
  - **rich** - 对 Markdown 在命令行渲染的支持
+ - **tiktoken** - Token 计算和编码处理
  - **pyinstaller**（可选，用于 `build_exe.py` 构建可执行文件）
 
 ### 安装方法
@@ -56,7 +57,7 @@ pip install -r requirements.txt
 
 #### 方法二：手动安装
 ```bash
-pip install openai pyyaml packaging prompt-toolkit
+pip install openai pyyaml packaging prompt-toolkit rich tiktoken
 # 如需构建可执行文件
 pip install pyinstaller
 ```
