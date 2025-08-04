@@ -4,6 +4,9 @@
 [![Github Release](https://img.shields.io/github/v/release/MiaowCham/CMD_Open-AI_Chat_Tool)](https://github.com/MiaowCham/CMD_Open-AI_Chat_Tool/releases)
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/MiaowCham/CMD_Open-AI_Chat_Tool/.github/workflows/build.yml)](https://github.com/MiaowCham/CMD_Open-AI_Chat_Tool/actions/workflows/build.yml)  
 
+>[!note]
+>本项目的重构正式版本由 @MiaowCham 设计，使用 [Trae IDE](https://www.trae.ai/) 的 [Solo 模式](https://www.trae.ai/solo) 完成代码的实现
+
 一个功能丰富的命令行 OpenAI 聊天工具，支持多种模型、多语言界面和智能功能  
 你可以直接克隆仓库并运行 `main.py` 来使用  
 或者前往 [Release](https://github.com/MiaowCham/CMD_Open-AI_Chat_Tool/releases/latest) 页面下载构建好的可执行文件
