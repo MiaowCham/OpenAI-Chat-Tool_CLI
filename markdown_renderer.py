@@ -302,6 +302,30 @@ class MarkdownRenderer:
     def print_newline(self) -> None:
         """打印空行"""
         self.console.print()
+    
+    def refresh_display(self, count: int = 10) -> None:
+        """手动刷新显示，重新渲染最近的内容
+        
+        Args:
+            count: 要重新渲染的最近内容数量，默认为10
+        """
+        try:
+            with self._lock:
+                if self.rendered_history:
+                    # 清屏
+                    self.console.clear()
+                    
+                    # 重新渲染最近的内容
+                    recent_count = min(count, len(self.rendered_history))
+                    for rendered_content in self.rendered_history[-recent_count:]:
+                        self._render_cached_content(rendered_content)
+                else:
+                    # 如果没有历史记录，只清屏
+                    self.console.clear()
+                    self.render_system_message("没有可刷新的内容", "刷新")
+        except Exception as e:
+            # 刷新失败时显示错误信息
+            self.render_error_message(f"刷新显示失败: {str(e)}")
 
 # 创建全局渲染器实例
 markdown_renderer = MarkdownRenderer()
@@ -326,3 +350,11 @@ def render_system_message(content: str, message_type: str = "System") -> None:
 def render_error_message(content: str) -> None:
     """渲染错误消息的便捷函数"""
     markdown_renderer.render_error_message(content)
+
+def refresh_display(count: int = 10) -> None:
+    """手动刷新显示的便捷函数
+    
+    Args:
+        count: 要重新渲染的最近内容数量，默认为10
+    """
+    markdown_renderer.refresh_display(count)
