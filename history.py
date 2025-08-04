@@ -61,10 +61,10 @@ class ChatHistory:
     def _count_tokens(self, text: str) -> int:
         """计算文本的Token数量"""
         try:
-            return len(self.tokenizer.encode(text))
+            return len(self.tokenizer.encode(str(text)))
         except Exception:
             # 如果编码失败，使用简单估算（1个Token约4个字符）
-            return len(text) // 4 + 1
+            return len(str(text)) // 4 + 1
     
     def add_message(self, role: str, content: str, message_type: str = "original") -> str:
         """
