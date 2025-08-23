@@ -123,18 +123,13 @@ class I18n:
             
             # 如果找到了翻译文本
             if isinstance(value, str):
-                # 处理格式化参数
+                # 处理格式化参数，支持同时使用位置和关键字参数
                 if args or kwargs:
                     try:
-                        # 支持位置参数格式化 {0}, {1}, ...
-                        if args:
-                            value = value.format(*args)
-                        # 支持关键字参数格式化 {name}, {value}, ...
-                        elif kwargs:
-                            value = value.format(**kwargs)
+                        value = value.format(*args, **kwargs)
                     except (KeyError, IndexError, ValueError) as e:
                         print(f"Warning: Format error for key '{key}': {e}")
-                
+
                 return value
             else:
                 print(f"Warning: Translation key '{key}' is not a string")
@@ -153,10 +148,7 @@ class I18n:
                     if isinstance(value, str):
                         if args or kwargs:
                             try:
-                                if args:
-                                    value = value.format(*args)
-                                elif kwargs:
-                                    value = value.format(**kwargs)
+                                value = value.format(*args, **kwargs)
                             except (KeyError, IndexError, ValueError):
                                 pass
                         return value
